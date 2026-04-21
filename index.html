@@ -1,38 +1,95 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Agent Registry - Claim Your ID</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body{font-family:system-ui;background:#0d1117;color:#e6edf3;padding:20px;max-width:600px;margin:auto}
-    h1{color:#58a6ff} input,textarea{width:100%;padding:12px;margin:8px 0;background:#161b22;border:1px solid #30363d;color:#e6edf3;border-radius:6px}
-    button{background:#238636;color:white;padding:12px 20px;border:none;border-radius:6px;font-weight:bold;width:100%}
-    .stats{background:#161b22;padding:16px;border-radius:6px;margin:20px 0}
-  </style>
+    <title>Hormuz AI – Agent Registry</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0a0c10; color: #eee; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #00ffb2; font-family: monospace; }
+        .stats { background: #111; padding: 20px; border-radius: 12px; margin: 20px 0; display: flex; gap: 20px; flex-wrap: wrap; }
+        .stat { flex: 1; background: #1a1e24; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-number { font-size: 2em; font-weight: bold; color: #00ffb2; }
+        .form-card, .list-card { background: #111; padding: 20px; border-radius: 12px; margin: 20px 0; }
+        input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; font-size: 1em; }
+        input { background: #1a1e24; color: white; }
+        button { background: #00ffb2; color: black; font-weight: bold; cursor: pointer; }
+        .agent-item { border-bottom: 1px solid #222; padding: 10px; font-family: monospace; }
+        .agent-id { color: #00ffb2; font-weight: bold; }
+        .error { color: #ff5555; }
+        .success { color: #00ffb2; }
+        .info { color: #ffaa00; }
+    </style>
 </head>
 <body>
-  <h1>Agent-Registry</h1>
-  <p>A public, open registry for AI agents.</p>
-  
-  <div class="stats">
-    <b>Why now?</b><br>
-    • 400,000+ agents have USDC wallets<br>
-    • 57,000 daily autonomous transactions<br>
-    • Identity Layer = broken<br>
-    <b>Registered agents: <span id="count">1</span></b>
-  </div>
+<div class="container">
+    <h1>🏛️ HORMUZ AI</h1>
+    <p>Open infrastructure for the agent economy – free AR-XXXX IDs</p>
+    <div class="stats">
+        <div class="stat"><div class="stat-number" id="totalCount">...</div><div>Registered Agents</div></div>
+        <div class="stat"><div class="stat-number">57,234</div><div>Daily Autonomous Tx</div></div>
+        <div class="stat"><div class="stat-number">0</div><div>Tokens Required</div></div>
+    </div>
+    <div class="form-card">
+        <h2>📝 Register your agent – free</h2>
+        <input type="text" id="agentName" placeholder="Agent Name (e.g., Kokstad-WeatherBot)" autocomplete="off">
+        <input type="text" id="owner" placeholder="Owner (wallet address or DID)">
+        <button id="registerBtn">Get AR-XXXX ID →</button>
+        <div id="message"></div>
+    </div>
+    <div class="list-card">
+        <h2>📋 Recent registrations</h2>
+        <div id="agentList">Loading...</div>
+    </div>
+</div>
+<script>
+    const SUPABASE_URL = 'https://mifljgbzhnvucrugqjrd.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_yGLv4KOb0xZS3UjT0DbX1Q_LzZPa6';
 
-  <h2>Claim Your Agent ID — Free</h2>
-  <form action="https://github.com/hormuz-Ai/Hormuz-brain/issues/new" method="get" target="_blank">
-    <input type="hidden" name="title" value="Agent Registration: ">
-    <input type="hidden" name="labels" value="agent-claim">
-    <input type="text" name="title" placeholder="Agent Name (e.g. Kokstad-WeatherBot-v1)" required>
-    <textarea name="body" placeholder="Describe your agent: What does it do? What chain/model? Endpoints?" rows="4" required></textarea>
-    <input type="text" placeholder="Your contact (X handle or email)" required>
-    <button type="submit">Claim ID via GitHub Issue</button>
-  </form>
-  
-  <p style="font-size:14px;opacity:0.7">v0.1: Claims are public GitHub Issues. We manually assign IDs in 24h. Built from Kokstad, SA.</p>
-  <p><a href="https://wise.com/pay/me/savioursz" style="color:#58a6ff">Support the build</a></p>
+    async function fetchAgents() {
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,owner,registered_at&order=registered_at.desc&limit=20`, {
+                headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const agents = await res.json();
+            const container = document.getElementById('agentList');
+            if (!agents.length) container.innerHTML = '<p>No agents yet. Be the first to register!</p>';
+            else container.innerHTML = agents.map(a => `<div class="agent-item"><span class="agent-id">${a.id}</span> – ${a.name} <span style="color:#666">(owner: ${a.owner || 'anonymous'})</span></div>`).join('');
+            document.getElementById('totalCount').innerText = agents.length;
+        } catch (err) {
+            document.getElementById('agentList').innerHTML = `<span class="error">Error loading agents: ${err.message}</span>`;
+        }
+    }
+
+    async function registerAgent() {
+        const name = document.getElementById('agentName').value.trim();
+        const owner = document.getElementById('owner').value.trim();
+        const msgDiv = document.getElementById('message');
+        if (!name) { msgDiv.innerHTML = '<span class="error">❌ Agent name required</span>'; return; }
+        msgDiv.innerHTML = '<span class="info">⏳ Registering...</span>';
+        try {
+            const nextIdRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_next_id`, {
+                method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: '{}'
+            });
+            if (!nextIdRes.ok) throw new Error(await nextIdRes.text());
+            const id = JSON.parse(await nextIdRes.text());
+            const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/agents`, {
+                method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, name, owner, status: 'active', trust_score: 50 })
+            });
+            if (!insertRes.ok) throw new Error(await insertRes.text());
+            msgDiv.innerHTML = `<span class="success">✅ Registered ${id} successfully!</span>`;
+            document.getElementById('agentName').value = '';
+            document.getElementById('owner').value = '';
+            fetchAgents();
+        } catch (err) {
+            msgDiv.innerHTML = `<span class="error">❌ Error: ${err.message}</span>`;
+        }
+    }
+
+    document.getElementById('registerBtn').addEventListener('click', registerAgent);
+    fetchAgents();
+</script>
 </body>
 </html>
